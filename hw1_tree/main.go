@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -20,9 +21,9 @@ type node struct {
 	is_file  bool
 	name     string
 	size     int64
+	parent   *node
 	children []*node
 	is_last  bool
-	parent   *node
 }
 
 func reverse(in string) string {
@@ -33,8 +34,8 @@ func reverse(in string) string {
 	}
 	return sb.String()
 }
-func (n node) String() string {
 
+func genSuphix(n node) string {
 	var buf strings.Builder
 	parent := n.parent
 	for parent != nil && !parent.is_root {
@@ -45,9 +46,13 @@ func (n node) String() string {
 		}
 		parent = parent.parent
 	}
-	ttt := buf.String()
-	buf.Reset()
-	buf.WriteString(reverse(ttt))
+	return reverse(buf.String())
+}
+
+func (n node) String() string {
+	var buf strings.Builder
+
+	buf.WriteString(genSuphix(n))
 
 	if n.is_last {
 		buf.WriteString(suphix_last)
@@ -98,7 +103,6 @@ func collectTreeInfo(path string, printFile bool, n *node) error {
 	return err
 }
 
-/*
 func sortTree(n *node) {
 	sort.Slice(n.children, func(i, j int) bool {
 		return n.children[i].name < n.children[j].name
@@ -107,12 +111,12 @@ func sortTree(n *node) {
 		sortTree(ch)
 	}
 }
-*/
-func makrLast(n *node) {
+
+func markLast(n *node) {
 	if len(n.children) > 0 {
 		n.children[len(n.children)-1].is_last = true
 		for _, ch := range n.children {
-			makrLast(ch)
+			markLast(ch)
 		}
 	}
 
@@ -134,8 +138,8 @@ func dirTree(out io.Writer, path string, printFile bool) error {
 	}
 	err := collectTreeInfo(path, printFile, &root)
 	if err == nil {
-		//sortTree(&root)
-		makrLast(&root)
+		sortTree(&root)
+		markLast(&root)
 		printTree(out, &root)
 	}
 	return err
