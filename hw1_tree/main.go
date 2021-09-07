@@ -80,11 +80,11 @@ func collectTreeInfo(path string, printFile bool, n *node) error {
 			}
 
 			child := &node{
-				is_root:  false,
-				is_file:  !val.IsDir(),
-				name:     val.Name(),
-				children: []*node{},
-				parent:   n,
+				is_root: false,
+				is_file: !val.IsDir(),
+				name:    val.Name(),
+				//				children: []*node{},
+				parent: n,
 			}
 
 			if val.IsDir() {
