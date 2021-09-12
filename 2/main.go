@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+	"time"
 )
 
 const routinsNum = 5
@@ -114,10 +115,72 @@ func five() {
 	fmt.Scanln()
 }
 
+func longSQLQuery() chan bool {
+	ch := make(chan bool, 1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		ch <- true
+	}()
+	return ch
+}
+
+func fnTimer() {
+	timer := time.NewTimer(3 * time.Second)
+	select {
+	case <-timer.C:
+		fmt.Println("timer.C timeout happened")
+	case <-time.After(10 * time.Second):
+		fmt.Println("timer.After timeout happened")
+	case res := <-longSQLQuery():
+		fmt.Println("longSQLQuery finished with result: ", res)
+		if !timer.Stop() {
+			fmt.Println("Force stop of timer")
+			<-timer.C
+		}
+	}
+}
+func fnTicker() {
+	ticker := time.NewTicker(time.Second)
+	i := 0
+	for tickTime := range ticker.C {
+		i++
+		fmt.Println("step", i, "time", tickTime)
+		if i >= 5 {
+			ticker.Stop()
+			break
+		}
+	}
+	fmt.Println("total", i)
+
+	c := time.Tick(time.Second)
+	i = 0
+	for tickTime := range c {
+		i++
+		fmt.Println("step", i, "time", tickTime)
+		if i >= 5 {
+			break
+		}
+	}
+}
+
+func sayHello() {
+	fmt.Println("Hello AfterFunck")
+}
+
+func afterF() {
+	t := time.AfterFunc(time.Second*5, sayHello)
+	fmt.Scanln()
+	t.Stop()
+	fmt.Scanln()
+}
+
 func main() {
 	//one()
 	//two()
 	//three()
 	//four()
-	five()
+	//five()
+	//fnTimer()
+	//fnTicker()
+	afterF()
 }
