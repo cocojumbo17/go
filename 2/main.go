@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"math/rand"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -174,6 +177,83 @@ func afterF() {
 	fmt.Scanln()
 }
 
+func worker(ctx context.Context, number int, out chan<- int) {
+	waitTime := time.Duration(rand.Intn(100)+10) * time.Millisecond
+	fmt.Println("Go:", number, "sleep", waitTime)
+	select {
+	case <-ctx.Done():
+		fmt.Println("Go: worker", number, "canceled")
+		return
+	case <-time.After(waitTime):
+		fmt.Println("Go: worker", number, "done")
+		out <- number
+	}
+}
+
+func fnCancel() {
+	ctx, finish := context.WithCancel(context.Background())
+	out := make(chan int, 1)
+	for i := 0; i < 10; i++ {
+		go worker(ctx, i, out)
+	}
+	foundBy := <-out
+	fmt.Println("Main: result found by", foundBy)
+	finish()
+
+	time.Sleep(time.Second)
+}
+
+func fnTimeOut() {
+	workTime := 50 * time.Millisecond
+	ctx, _ := context.WithTimeout(context.Background(), workTime)
+	out := make(chan int, 1)
+	for i := 0; i < 10; i++ {
+		go worker(ctx, i, out)
+	}
+	totalFound := 0
+LOOP:
+	for {
+		select {
+		case <-ctx.Done():
+			break LOOP
+		case foundBy := <-out:
+			totalFound++
+			fmt.Println("Main: result found by", foundBy)
+		}
+	}
+	fmt.Println("Main: total found", totalFound)
+	time.Sleep(time.Second)
+}
+
+func goPull(num int, in chan string, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for data := range in {
+		fmt.Println("Go: ", num, ": ", data)
+		runtime.Gosched()
+	}
+	fmt.Println("Go: finish of ", num, " worker")
+}
+
+func pullWorker() {
+	fmt.Println("Main: start")
+	wg := sync.WaitGroup{}
+	const goNum int = 5
+	in := make(chan string, 3)
+	for i := 0; i < goNum; i++ {
+		wg.Add(1)
+		go goPull(i, in, &wg)
+	}
+	mounths := []string{"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
+	for _, name := range mounths {
+		in <- name
+	}
+	fmt.Println("Main: before closing")
+	close(in)
+	fmt.Println("Main: after closing")
+	wg.Wait()
+	fmt.Println("Main: finish")
+}
+
 func main() {
 	//one()
 	//two()
@@ -182,5 +262,8 @@ func main() {
 	//five()
 	//fnTimer()
 	//fnTicker()
-	afterF()
+	//afterF()
+	//fnCancel()
+	//fnTimeOut()
+	pullWorker()
 }
