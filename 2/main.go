@@ -7,10 +7,11 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
-const routinsNum = 5
+const routinsNum = 10
 const interations = 7
 
 func formatWork(in, j int) string {
@@ -254,6 +255,66 @@ func pullWorker() {
 	fmt.Println("Main: finish")
 }
 
+func goQuota(num int, wg *sync.WaitGroup, quotaCh chan struct{}) {
+	quotaCh <- struct{}{}
+	defer wg.Done()
+	for i := 0; i < interations; i++ {
+		fmt.Println(formatWork(num, i))
+		// if i%4 == 0 {
+		// 	<-quotaCh
+		// 	quotaCh <- struct{}{}
+		// }
+		runtime.Gosched()
+	}
+	fmt.Println("Go: finish of ", num, " worker")
+	<-quotaCh
+}
+
+func pullQuota() {
+	fmt.Println("Main: start")
+	wg := sync.WaitGroup{}
+	const quotaLimit = 4
+	quotaCh := make(chan struct{}, quotaLimit)
+	for i := 0; i < routinsNum; i++ {
+		wg.Add(1)
+		go goQuota(i, &wg, quotaCh)
+	}
+	wg.Wait()
+	fmt.Println("Main: finish")
+}
+
+func gaisenBug() {
+	var counters = map[int]int{}
+	mx := sync.Mutex{}
+	for i := 0; i < 5; i++ {
+		go func(m map[int]int, th int, mux *sync.Mutex) {
+			for j := 0; j < 5; j++ {
+				mux.Lock()
+				m[th*5+j]++
+				mux.Unlock()
+			}
+			runtime.Gosched()
+		}(counters, i, &mx)
+	}
+	fmt.Scanln()
+	mx.Lock()
+	fmt.Println("result:", counters)
+	mx.Unlock()
+}
+
+func Inc() {
+	var count int32 = 0
+	for i := 0; i < 1000; i++ {
+		go func() {
+			//count++
+			atomic.AddInt32(&count, 1)
+		}()
+	}
+	time.Sleep(time.Microsecond * 10)
+	fmt.Println(count)
+
+}
+
 func main() {
 	//one()
 	//two()
@@ -265,5 +326,8 @@ func main() {
 	//afterF()
 	//fnCancel()
 	//fnTimeOut()
-	pullWorker()
+	//pullWorker()
+	//pullQuota()
+	//gaisenBug()
+	Inc()
 }
